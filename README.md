@@ -1,99 +1,97 @@
-#  Projet de Fin d’Études – Reproductibilité d’un Article de Recherche
+# **Final-Year Project – Reproducibility of a Research Article**
 
-##  Contexte du projet
+## **Project Context**
 
-Ce dépôt s’inscrit dans le cadre du **parcours de recherche de la troisième année du Magistère Ingénieur Économiste**.  
-Le **Projet de Fin d’Études (PFE)** vise à développer des compétences essentielles à la production de recherche scientifique, notamment :
+This repository is part of the **third‑year research track of the Magistère Ingénieur Économiste**.  
+The **Final-Year Project (PFE)** aims to develop key skills required for producing scientific research, including:
 
-- la compréhension approfondie d’un article académique,  
-- la reproductibilité empirique,  
-- l’analyse critique des méthodes,  
-- la mise en œuvre rigoureuse de codes et de données.
-
----
-
-##  Objectif du PFE
-
-Le projet consiste à sélectionner un article scientifique et à en étudier la reproductibilité selon trois axes :
-
-### 1. **Reproductibilité des résultats**  
-→ Peut‑on retrouver les résultats principaux du papier ?
-
-### 2. **Validité des codes fournis**  
-→ Les scripts mis à disposition permettent‑ils réellement de reproduire l’approche théorique et empirique décrite dans l’article ?
-
-### 3. **Robustesse des résultats**  
-→ Les conclusions tiennent‑elles lorsque l’on modifie légèrement l’approche empirique (échantillon, spécification, variables, transformations, etc.) ?
+- in‑depth understanding of an academic article  
+- empirical reproducibility  
+- critical assessment of methodological choices  
+- rigorous implementation of code and data workflows  
 
 ---
 
-##  Article étudié
+## **Objective of the Project**
 
-Nous avons choisi de reproduire l’article suivant :
+The project consists in selecting a scientific article and assessing its reproducibility along three main dimensions:
+
+### **1. Reproducibility of the results**  
+→ Can the main findings of the paper be replicated?
+
+### **2. Validity of the provided code**  
+→ Do the authors’ scripts actually reproduce the theoretical and empirical approach described in the article?
+
+### **3. Robustness of the results**  
+→ Do the conclusions hold when the empirical approach is slightly modified (sample, specification, variables, transformations, etc.)?
+
+---
+
+## **Article Under Study**
+
+We chose to reproduce the following article:
 
 **_Carbon Taxation and Greenflation: Evidence from Europe and Canada_**  
 **Maximilian Konradt**, Geneva Graduate Institute, Switzerland  
 **Beatrice Weder di Mauro**, Geneva Graduate Institute, Switzerland; INSEAD, France  
 
-Cet article analyse les effets des politiques de taxation carbone sur la dynamique des prix (« greenflation ») en Europe et au Canada, en mobilisant des données macroéconomiques et des approches empiriques avancées.
+This article analyzes the effects of carbon taxation policies on price dynamics (“greenflation”) in Europe and Canada, using macroeconomic data and advanced empirical methods.
 
 ---
 
-##  Contenu du dépôt
+## **Repository Structure**
 
-Ce dépôt contient :
-
-- **data/** : données utilisées ou reconstruites pour la reproduction  
-- **src/** : scripts Python / R / Stata  
-- **notebooks/** : notebooks d’exploration et de reproduction  
-- **results/** : tableaux, graphiques et sorties empiriques  
-- **README.md** : présentation du projet  
-- **LICENSE** : licence d’utilisation  
-- **.gitignore** : fichiers à exclure du suivi Git  
-
----
-
-##  Méthodologie générale
-
-Notre démarche suit trois étapes :
-
-### 1. **Reproduction stricte**
-Reproduire fidèlement les résultats du papier à partir :
-
-- des données originales (si disponibles),  
-- des codes fournis par les auteurs,  
-- ou des données reconstruites lorsque nécessaire.
-
-### 2. **Vérification de la cohérence méthodologique**
-Comparer :
-
-- les méthodes décrites dans l’article,  
-- les méthodes réellement implémentées dans les scripts,  
-- les résultats obtenus.
-
-### 3. **Tests de robustesse**
-Explorer la stabilité des résultats en modifiant :
-
-- les spécifications économétriques,  
-- les échantillons,  
-- les variables,  
-- les transformations,  
-- ou les méthodes d’identification.
+```
+data/         → datasets used or reconstructed for the replication
+src/          → Python / R / Stata scripts
+notebooks/    → exploratory and replication notebooks
+results/      → tables, figures, and empirical outputs
+README.md     → project overview
+LICENSE       → usage license
+.gitignore    → files excluded from Git tracking
+```
 
 ---
 
-##  Auteurs
+## **General Methodology**
 
-- **Brayann Adjanohoun**, M2 Économie Recherche – Parcours Magistère  
-- **Simon Labracherie**, M2 Économétrie Recherche – Parcours Magistère  
+Our approach follows three steps:
 
-Encadrant : **Ewen Gallic**
+### **1. Strict reproduction**
+Faithfully reproduce the paper’s results using:
+
+- the original data (when available)  
+- the authors’ code  
+- or reconstructed data when necessary  
+
+### **2. Verification of methodological consistency**
+Compare:
+
+- the methods described in the article  
+- the methods actually implemented in the scripts  
+- the results obtained  
+
+### **3. Robustness checks**
+Assess the stability of the results by modifying:
+
+- econometric specifications  
+- samples  
+- variables  
+- transformations  
+- identification strategies  
 
 ---
 
-##  Licence
+## **Authors**
 
-Ce projet est distribué sous licence **GNU GPL v3**.  
-Voir le fichier `LICENSE` pour plus d’informations.
+- **Brayann Adjanohoun**, M2 Economics Research – Magistère Track  
+- **Simon Labracherie**, M2 Econometrics Research – Magistère Track  
+
+Supervisor: **Ewen Gallic**
 
 ---
+
+## **License**
+
+This project is distributed under the **GNU GPL v3** license.  
+See the `LICENSE` file for more information.
