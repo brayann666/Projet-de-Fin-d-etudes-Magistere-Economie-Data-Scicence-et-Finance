@@ -42,10 +42,6 @@ This article analyzes the effects of carbon taxation policies on price dynamics 
 ## **Repository Structure**
 
 ```
-data/         → datasets used or reconstructed for the replication
-src/          → Python / R / Stata scripts
-notebooks/    → exploratory and replication notebooks
-results/      → tables, figures, and empirical outputs
 README.md     → project overview
 LICENSE       → usage license
 .gitignore    → files excluded from Git tracking
