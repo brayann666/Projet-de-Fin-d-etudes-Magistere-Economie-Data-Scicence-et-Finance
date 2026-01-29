@@ -42,6 +42,7 @@ This article analyzes the effects of carbon taxation policies on price dynamics 
 ## **Repository Structure**
 
 ```
+(need to be completed)
 README.md     → project overview
 LICENSE       → usage license
 .gitignore    → files excluded from Git tracking
