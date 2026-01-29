@@ -84,8 +84,8 @@ Assess the stability of the results by modifying:
 
 ## **Authors**
 
-- **Brayann Adjanohoun**, M2 Economics Research – Magistère Track  
-- **Simon Labracherie**, M2 Econometrics Research – Magistère Track  
+- **Brayann Adjanohoun**, M2 Economics Research – Magister Track  
+- **Simon Labracherie**, M2 Econometrics Research – Magister Track  
 
 Supervisor: **Ewen Gallic**
 
