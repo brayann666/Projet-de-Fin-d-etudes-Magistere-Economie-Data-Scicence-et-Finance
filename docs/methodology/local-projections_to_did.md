@@ -60,5 +60,5 @@ $$ y_{i,t+h} − y_{i,t−1}
 
 Estimation sample restricted to:
 
-Newly treated:    $$ ΔD_it = 1 $$
-Clean control:   $$ D_{i,t+h} = 0 $$
+$$ Newly treated:     ΔD_it = 1 \\
+Clean control:    D_{i,t+h} = 0 $$
