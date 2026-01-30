@@ -2,9 +2,7 @@
 
 ## Specification 1. Static two-way fixed-effects regression (static TWFE)
 
-```
-y_it = α_i^STWFE + δ_t^STWFE + β^STWFE · D_it + e_it^STWFE   (2)
-```
+$$ y_it = α_i^STWFE + δ_t^STWFE + β^STWFE · D_it + e_it^STWFE   (2) $$
 
 where:
 - α_i are unit-specific intercepts  
