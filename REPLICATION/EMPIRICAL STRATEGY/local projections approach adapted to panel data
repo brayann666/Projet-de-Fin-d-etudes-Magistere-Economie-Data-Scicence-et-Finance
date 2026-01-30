@@ -1,0 +1,93 @@
+# A Local Projections Approach to Difference-in-Differences
+
+## Specification 1. Static two-way fixed-effects regression (static TWFE)
+
+\[
+y_{it} = \alpha_i^{STWFE} + \delta_t^{STWFE} + \beta^{STWFE} D_{it} + e_{it}^{STWFE}
+\]
+(2)
+
+where the \(\alpha\) are unit-specific intercepts and the \(\delta\) are common time-specific intercepts, and \(e\) denotes the error term.
+
+---
+
+## Specification 2. Dynamic two-way fixed-effects regression (dynamic TWFE)
+
+\[
+y_{it} = \alpha_i^{ETWFE} + \delta_t^{ETWFE}
++ \sum_{h=-Q}^{H} \gamma_h^{ETWFE} D_{i,t-h}
++ e_{it}^{ETWFE}, \quad Q, H \ge 0
+\]
+(3)
+
+where
+
+\[
+\beta_h^{ETWFE} = \sum_{j=0}^{h} \gamma_j^{ETWFE}
+\]
+
+provides the dynamic TWFE estimate for the effect at horizon \(h\) after treatment  
+\((0 \le h \le H)\), and
+
+\[
+\beta_{-h}^{ETWFE} = - \sum_{j=-h}^{-1} \gamma_j^{ETWFE}
+\]
+
+is likewise an estimate of possible pre-trends at horizon \(h\) before treatment  
+\(( -Q \le h \le -1 )\).
+
+---
+
+## Specification 3. Local Projections regression (LP)
+
+\[
+y_{i,t+h} - y_{i,t-1}
+= \delta_t^{h} + \beta_h^{LP} \Delta D_{it} + e_{it}^{h},
+\quad h = -Q, \ldots, 0, \ldots, H,
+\quad Q, H \ge 0,
+\quad h \neq -1
+\]
+(4)
+
+As a result of the differencing, the LP specification does not include unit fixed effects.  
+Moreover, a separate regression is estimated for each time horizon \(h\).
+
+To summarize: with staggered treatment, a naive LP regression may suffer from the **“negative weights”** problem highlighted by recent studies, arising from unclear comparisons using previously treated units as controls.
+
+---
+
+## LP-DiD Estimator
+
+**Key idea:** restrict comparisons to *clean* treated and control units.
+
+---
+
+## LP-DiD Regression
+
+Estimate the regression:
+
+\[
+y_{i,t+h} - y_{i,t-1}
+= \beta_h^{LP\text{-}DiD} \Delta D_{it}
++ \delta_t^{h}
++ e_{it}^{h}
+\]
+
+for
+
+\[
+h = -Q, \ldots, 0, \ldots, H
+\]
+
+restricting the estimation sample to observations that are either:
+
+- **Newly treated:**  
+  \[
+  \Delta D_{it} = 1
+  \]
+
+- **Clean control:**  
+  \[
+  D_{i,t+h} = 0
+  \]
+
