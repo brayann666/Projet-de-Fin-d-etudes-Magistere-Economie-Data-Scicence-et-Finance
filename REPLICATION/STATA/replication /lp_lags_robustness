@@ -1,0 +1,345 @@
+****************************************************
+* Build cumulative-IRF Excel files + Figures
+* for lplags = 2, 3, 6, 8
+****************************************************
+
+clear all
+set more off
+
+global dir "/Users/sims7/Desktop/FAC/M2/S1/PFE/replication"
+
+*-----------------------------
+* PART A — GENERATE CLP EXCELS
+*-----------------------------
+use "$dir/data/ctax_panel_eu.dta", clear
+
+global p = 6
+global q = 1
+
+* Tax variable
+local x "rater_LCU_USD18sw"
+
+* Create cumulative dependent variables ONCE
+egen id = group(iso)
+xtset id year
+
+foreach v in head core energyfood {
+    forvalues h = 0/6 {
+        gen infl_`v'`h' = 100*(f`h'.cpi_`v' - l.cpi_`v')/l.cpi_`v'
+    }
+}
+
+* Loop over lag lengths
+foreach L in 2 3 6 8 {
+
+    di as txt "=== Cumulative LP: lplags = `L' ==="
+
+    global lplags = `L'
+    local p      = $p
+    local lplags = $lplags
+    local q      = $q
+    local pp1    = `p' + 1
+
+    * Output file (CLP-style)
+    global fxlsout "$dir/tables/europe_clp_L`L'.xlsx"
+
+    * Baseline controls (depends on lplags)
+    global ctrl1 "L(`q'/`lplags').dlrgdp L(`q'/`lplags').dpolicyrate i.year"
+
+    * Reset so _00irf.do overwrites the Excel at first write
+    sca irfno = 0
+
+    foreach y in infl_head infl_core infl_energyfood {
+
+        preserve
+
+        * Panel setup
+        cap drop cdum cnum
+        egen cnum = group(iso)
+        xtset cnum year
+        tab iso, gen(cdum)
+
+        * Carbon tax path setup
+        sca rateinit = 40
+        sca swfac = 0.3
+        mat xpath = J(`pp1', 1, rateinit)
+
+        * Globals read by _00irf.do
+        global y "`y'"
+        global x "`x'"
+        global smple "1"
+        global controls "1"
+
+        * Storage matrices used by _00irf.do
+        mat theta11 = J(`pp1',1,1)
+        sca irfno = irfno + 1
+        mat b99 = J(`pp1',1,0)
+        mat s99 = b99
+        cap drop e99*
+
+        forvalues h = 0/`p' {
+            local hp1 = `h' + 1
+
+            * CUMULATIVE LP regression
+            qui reg `y'`h' L(0/`lplags').`x' L(`q'/`lplags').`y' ${ctrl1} cdum*, r
+
+            mat b98 = e(b)
+            mat b99[`hp1',1] = b98[1,1]
+
+            * HR variance construction pieces
+            local k = e(df_m)
+            cap drop smpl`h' e`h' etax`h' zz`h'
+            qui gen smpl`h' = e(sample)
+            qui predict e`h', resid
+
+            qui reg `x' L(1/`lplags').`x' L(`q'/`lplags').`y' ${ctrl1} cdum* if smpl`h', r
+            qui predict etax`h', resid
+            qui su etax`h' if smpl`h'
+            gen zz`h' = (r(N)/(r(N)-1))*(e`h'*etax`h'/r(Var))/sqrt(r(N)-`k') if smpl`h'
+
+            * IRF of x (needed to invert path into shocks)
+            if `h' > 0 {
+                qui areg F`h'.`x' L(0/`lplags').`x' L(`q'/`lplags').`y' ${ctrl1}, absorb(cnum) vce(r)
+                mat b97 = e(b)
+                mat theta11[`h'+1,1] = b97[1,1]
+            }
+        }
+
+        * Full covariance across horizons
+        mat v99 = I(`p'+1)
+        forvalues i = 0/`p' {
+            qui su zz`i'
+            mat v99[`i'+1,`i'+1] = r(Var)
+            local ip1 = `i' + 1
+            forvalues j = `ip1'/`p' {
+                qui corr zz`i' zz`j', cov
+                mat v99[`i'+1,`j'+1] = r(cov_12)
+                mat v99[`j'+1,`i'+1] = r(cov_12)
+            }
+        }
+
+        * Write to Excel
+        do "$dir/codes/_00irf.do"
+
+        restore
+    }
+
+    di as result "Wrote: $fxlsout"
+}
+
+*-----------------------------
+* PART B — FIGURES FROM CLP EXCELS
+*-----------------------------
+********************************************************************************
+********************* Figures based on cumulative IRFs  ************************
+ 
+
+set scheme s1mono
+graph set window fontface "Times New Roman"
+
+cap mkdir "$dir/figures/figure_replication"
+
+foreach L in 2 3 6 8 {
+
+    import excel using "$dir/tables/europe_clp_L`L'.xlsx", clear first
+
+    drop if _n <3
+    destring E, replace force
+    drop L-O B-D
+
+    rename (E-K) (b0 b1 b2 b3 b4 b5 b6)
+    rename Effectafterhyearsof40incr est0
+    replace est0 = "beta" if _n ==1 | _n ==3 | _n ==5
+    replace est0 = "se"   if _n ==2 | _n ==4 | _n ==6
+
+    gen y = "infl_head"
+    replace y = "infl_core"       if _n >2
+    replace y = "infl_energyfood" if _n >4
+
+    foreach v in "infl_head" "infl_core" "infl_energyfood" {
+
+        preserve
+            keep if y=="`v'"
+
+            reshape long b, i(est0) j(horizon)
+            reshape wide b, j(est0) i(horizon) string
+
+            rename bbeta b
+            gen u_2 = b + 2*bse
+            gen u_1 = b +   bse
+            gen d_2 = b - 2*bse
+            gen d_1 = b -   bse
+
+            drop if horizon > 5
+
+            * ----- Titles -----
+            local panel ""
+            local vartitle ""
+
+            if "`v'"=="infl_head" {
+                local panel "(a)"
+                local vartitle "Headline inflation"
+            }
+            if "`v'"=="infl_core" {
+                local panel "(b)"
+                local vartitle "Core inflation"
+            }
+            if "`v'"=="infl_energyfood" {
+                local panel "(c)"
+                local vartitle "Energy and food inflation"
+            }
+
+            local fulltitle "`panel' `vartitle' (LP lags = `L')"
+
+            twoway ///
+                (rarea u_2 d_2 horizon, ///
+                    fcolor(gs15) lcolor(gs15) lw(none) lpattern(solid)) ///
+                (rarea u_1 d_1 horizon, ///
+                    fcolor(gs10) lcolor(gs10) lw(none) lpattern(solid)) ///
+                (line b horizon, ///
+                    lcolor(gs0) lpattern(solid) lwidth(medthick)), ///
+                yline(0, lp("-") lc(gs6)) legend(off) ///
+                title("`fulltitle'", color(black) size(medsmall)) ///
+                ytitle("Percentage points", size(medlarge)) ///
+                xtitle("Years", size(medlarge)) ///
+                ylab(-8(2)8,) xlab(0(1)5)
+
+            graph export "$dir/figures/figure_replication/lp_eu_L`L'_`v'.pdf", as(pdf) replace
+        restore
+    }
+}
+
+
+
+
+
+********************************************************************************
+* PART C — FIGURES: Lag vs Baseline (overlay on same graph)
+* Baseline IRFs are in:  $dir/tables/europe_clp.xlsx
+* Lag-specific IRFs are in: $dir/tables/europe_clp_L2.xlsx etc
+* Output: compare_L2_infl_head.pdf ... (one pdf per L x inflation type)
+********************************************************************************
+
+* Use a color scheme (otherwise everything is grayscale)
+set scheme s1color
+graph set window fontface "Times New Roman"
+
+cap mkdir "$dir/figures/figure_replication"
+
+* -----------------------------
+* 1) LOAD + PREP BASELINE ONCE
+* -----------------------------
+tempfile base_head base_core base_energy
+
+import excel using "$dir/tables/europe_clp.xlsx", clear first
+
+drop if _n < 3
+destring E, replace force
+drop L-O B-D
+
+rename (E-K) (b0 b1 b2 b3 b4 b5 b6)
+rename Effectafterhyearsof40incr est0
+replace est0 = "beta" if _n == 1 | _n == 3 | _n == 5
+replace est0 = "se"   if _n == 2 | _n == 4 | _n == 6
+
+gen y = "infl_head"
+replace y = "infl_core"       if _n > 2
+replace y = "infl_energyfood" if _n > 4
+
+foreach v in infl_head infl_core infl_energyfood {
+    preserve
+        keep if y == "`v'"
+
+        reshape long b, i(est0) j(horizon)
+        reshape wide b, j(est0) i(horizon) string
+
+        rename bbeta b_base
+        rename bse   se_base
+
+        gen u2_base = b_base + 2*se_base
+        gen d2_base = b_base - 2*se_base
+
+        drop if horizon > 5
+        keep horizon b_base se_base u2_base d2_base
+
+        if "`v'" == "infl_head"       save `base_head', replace
+        if "`v'" == "infl_core"       save `base_core', replace
+        if "`v'" == "infl_energyfood" save `base_energy', replace
+    restore
+}
+
+* -----------------------------------------
+* 2) LOOP OVER LAGS: overlay L vs BASELINE
+* -----------------------------------------
+foreach L in 2 3 6 8 {
+
+    import excel using "$dir/tables/europe_clp_L`L'.xlsx", clear first
+
+    drop if _n < 3
+    destring E, replace force
+    drop L-O B-D
+
+    rename (E-K) (b0 b1 b2 b3 b4 b5 b6)
+    rename Effectafterhyearsof40incr est0
+    replace est0 = "beta" if _n == 1 | _n == 3 | _n == 5
+    replace est0 = "se"   if _n == 2 | _n == 4 | _n == 6
+
+    gen y = "infl_head"
+    replace y = "infl_core"       if _n > 2
+    replace y = "infl_energyfood" if _n > 4
+
+    foreach v in infl_head infl_core infl_energyfood {
+
+        preserve
+            keep if y == "`v'"
+
+            reshape long b, i(est0) j(horizon)
+            reshape wide b, j(est0) i(horizon) string
+
+            rename bbeta b_L
+            rename bse   se_L
+
+            gen u2_L = b_L + 2*se_L
+            gen d2_L = b_L - 2*se_L
+
+            drop if horizon > 5
+            keep horizon b_L se_L u2_L d2_L
+
+            * merge baseline for this inflation type
+            if "`v'" == "infl_head"       merge 1:1 horizon using `base_head', nogen
+            if "`v'" == "infl_core"       merge 1:1 horizon using `base_core', nogen
+            if "`v'" == "infl_energyfood" merge 1:1 horizon using `base_energy', nogen
+
+            * titles
+            local vartitle ""
+            if "`v'"=="infl_head"       local vartitle "Headline inflation"
+            if "`v'"=="infl_core"       local vartitle "Core inflation"
+            if "`v'"=="infl_energyfood" local vartitle "Energy and food inflation"
+
+            local fulltitle "`vartitle' (LP lags = `L') vs Baseline"
+
+            * Overlay plot: Baseline + L (each with 95% band)
+            twoway ///
+				/* Baseline CI */ ///
+				(rarea u2_base d2_base horizon, ///
+					fcolor(cranberry%35) lcolor(cranberry) lwidth(thin)) ///
+				/* Lag CI */ ///
+				(rarea u2_L d2_L horizon, ///
+					fcolor(dkgreen%20) lcolor(dkgreen%60) lwidth(thin)) ///
+				/* Baseline line */ ///
+				(line  b_base horizon, ///
+					lcolor(cranberry) lwidth(medthick)) ///
+				/* Lag line */ ///
+				(line  b_L horizon, ///
+					lcolor(dkgreen)  lwidth(medthick)), ///
+				yline(0, lp("-") lc(gs6)) ///
+				title("`fulltitle'", color(black) size(medsmall)) ///
+				ytitle("Percentage points", size(medlarge)) ///
+				xtitle("Years", size(medlarge)) ///
+				ylab(-8(2)8) xlab(0(1)5) ///
+				legend(order(3 "Baseline" 4 "LP lags = `L'") cols(2) size(small) region(lcolor(none)))
+
+            graph export "$dir/figures/figure_replication/compare_L`L'_`v'.pdf", as(pdf) replace
+        restore
+    }
+}
