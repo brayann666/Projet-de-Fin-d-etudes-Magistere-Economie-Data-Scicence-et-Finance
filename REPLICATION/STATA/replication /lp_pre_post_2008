@@ -1,0 +1,247 @@
+****************************************************
+* Build cumulative-IRF Excel file + Figures
+* for lplags = 4, sample: year < 2008
+* + FIGURES: pre2008 (L4) vs BASELINE (europe_clp.xlsx)
+****************************************************
+
+clear all
+set more off
+
+global dir "/Users/sims7/Desktop/FAC/M2/S1/PFE/replication"
+
+*-----------------------------
+* PART A — GENERATE CLP EXCEL (L=4, pre-2008 only)
+*-----------------------------
+use "$dir/data/ctax_panel_eu.dta", clear
+keep if year < 2008
+
+global p = 6
+global q = 1
+global lplags = 4
+
+* Tax variable
+local x "rater_LCU_USD18sw"
+
+* Housekeeping locals
+local p      = $p
+local lplags = $lplags
+local q      = $q
+local pp1    = `p' + 1
+
+* Output file (CLP-style)
+global fxlsout "$dir/tables/europe_clp_L4_pre2008.xlsx"
+
+* Baseline controls (depends on lplags)
+global ctrl1 "L(`q'/`lplags').dlrgdp L(`q'/`lplags').dpolicyrate i.year"
+
+* Create cumulative dependent variables ONCE (on restricted sample)
+egen id = group(iso)
+xtset id year
+
+foreach v in head core energyfood {
+    forvalues h = 0/6 {
+        gen infl_`v'`h' = 100*(f`h'.cpi_`v' - l.cpi_`v')/l.cpi_`v'
+    }
+}
+
+di as txt "=== Cumulative LP: lplags = 4 (year < 2008) ==="
+
+* Reset so _00irf.do overwrites the Excel at first write
+sca irfno = 0
+
+foreach y in infl_head infl_core infl_energyfood {
+
+    preserve
+
+    * Panel setup
+    cap drop cdum cnum
+    egen cnum = group(iso)
+    xtset cnum year
+    tab iso, gen(cdum)
+
+    * Carbon tax path setup
+    sca rateinit = 40
+    sca swfac = 0.3
+    mat xpath = J(`pp1', 1, rateinit)
+
+    * Globals read by _00irf.do
+    global y "`y'"
+    global x "`x'"
+    global smple "1"
+    global controls "1"
+
+    * Storage matrices used by _00irf.do
+    mat theta11 = J(`pp1',1,1)
+    sca irfno = irfno + 1
+    mat b99 = J(`pp1',1,0)
+    mat s99 = b99
+    cap drop e99*
+
+    forvalues h = 0/`p' {
+        local hp1 = `h' + 1
+
+        * CUMULATIVE LP regression
+        qui reg `y'`h' L(0/`lplags').`x' L(`q'/`lplags').`y' ${ctrl1} cdum*, r
+
+        mat b98 = e(b)
+        mat b99[`hp1',1] = b98[1,1]
+
+        * HR variance construction pieces
+        local k = e(df_m)
+        cap drop smpl`h' e`h' etax`h' zz`h'
+        qui gen smpl`h' = e(sample)
+        qui predict e`h', resid
+
+        qui reg `x' L(1/`lplags').`x' L(`q'/`lplags').`y' ${ctrl1} cdum* if smpl`h', r
+        qui predict etax`h', resid
+        qui su etax`h' if smpl`h'
+        gen zz`h' = (r(N)/(r(N)-1))*(e`h'*etax`h'/r(Var))/sqrt(r(N)-`k') if smpl`h'
+
+        * IRF of x (needed to invert path into shocks)
+        if `h' > 0 {
+            qui areg F`h'.`x' L(0/`lplags').`x' L(`q'/`lplags').`y' ${ctrl1}, absorb(cnum) vce(r)
+            mat b97 = e(b)
+            mat theta11[`h'+1,1] = b97[1,1]
+        }
+    }
+
+    * Full covariance across horizons
+    mat v99 = I(`p'+1)
+    forvalues i = 0/`p' {
+        qui su zz`i'
+        mat v99[`i'+1,`i'+1] = r(Var)
+        local ip1 = `i' + 1
+        forvalues j = `ip1'/`p' {
+            qui corr zz`i' zz`j', cov
+            mat v99[`i'+1,`j'+1] = r(cov_12)
+            mat v99[`j'+1,`i'+1] = r(cov_12)
+        }
+    }
+
+    * Write to Excel
+    do "$dir/codes/_00irf.do"
+
+    restore
+}
+
+di as result "Wrote: $fxlsout"
+
+
+*-----------------------------
+* PART B — FIGURES: pre2008 (L4) vs BASELINE
+* Baseline file: $dir/tables/europe_clp.xlsx
+* Pre2008 file:  $dir/tables/europe_clp_L4_pre2008.xlsx
+*-----------------------------
+
+* Use colors so CI bands are visible
+set scheme s1color
+graph set window fontface "Times New Roman"
+cap mkdir "$dir/figures/figure_replication"
+
+* ---- 1) PREP BASELINE IRFs ONCE ----
+tempfile base_head base_core base_energy
+
+import excel using "$dir/tables/europe_clp.xlsx", clear first
+
+drop if _n < 3
+destring E, replace force
+drop L-O B-D
+
+rename (E-K) (b0 b1 b2 b3 b4 b5 b6)
+rename Effectafterhyearsof40incr est0
+replace est0 = "beta" if _n == 1 | _n == 3 | _n == 5
+replace est0 = "se"   if _n == 2 | _n == 4 | _n == 6
+
+gen y = "infl_head"
+replace y = "infl_core"       if _n > 2
+replace y = "infl_energyfood" if _n > 4
+
+foreach v in infl_head infl_core infl_energyfood {
+
+    preserve
+        keep if y == "`v'"
+
+        reshape long b, i(est0) j(horizon)
+        reshape wide b, j(est0) i(horizon) string
+
+        rename bbeta b_base
+        rename bse   se_base
+
+        gen u2_base = b_base + 2*se_base
+        gen d2_base = b_base - 2*se_base
+
+        drop if horizon > 5
+        keep horizon b_base se_base u2_base d2_base
+
+        if "`v'" == "infl_head"       save `base_head', replace
+        if "`v'" == "infl_core"       save `base_core', replace
+        if "`v'" == "infl_energyfood" save `base_energy', replace
+    restore
+}
+
+* ---- 2) LOAD PRE2008 (L4) AND OVERLAY VS BASELINE ----
+import excel using "$dir/tables/europe_clp_L4_pre2008.xlsx", clear first
+
+drop if _n < 3
+destring E, replace force
+drop L-O B-D
+
+rename (E-K) (b0 b1 b2 b3 b4 b5 b6)
+rename Effectafterhyearsof40incr est0
+replace est0 = "beta" if _n == 1 | _n == 3 | _n == 5
+replace est0 = "se"   if _n == 2 | _n == 4 | _n == 6
+
+gen y = "infl_head"
+replace y = "infl_core"       if _n > 2
+replace y = "infl_energyfood" if _n > 4
+
+foreach v in infl_head infl_core infl_energyfood {
+
+    preserve
+        keep if y == "`v'"
+
+        reshape long b, i(est0) j(horizon)
+        reshape wide b, j(est0) i(horizon) string
+
+        rename bbeta b_pre
+        rename bse   se_pre
+
+        gen u2_pre = b_pre + 2*se_pre
+        gen d2_pre = b_pre - 2*se_pre
+
+        drop if horizon > 5
+        keep horizon b_pre se_pre u2_pre d2_pre
+
+        * merge baseline by horizon
+        if "`v'" == "infl_head"       merge 1:1 horizon using `base_head', nogen
+        if "`v'" == "infl_core"       merge 1:1 horizon using `base_core', nogen
+        if "`v'" == "infl_energyfood" merge 1:1 horizon using `base_energy', nogen
+
+        * titles
+        local vartitle ""
+        if "`v'" == "infl_head"       local vartitle "Headline inflation"
+        if "`v'" == "infl_core"       local vartitle "Core inflation"
+        if "`v'" == "infl_energyfood" local vartitle "Energy and food inflation"
+
+        local fulltitle "`vartitle' (LP lags = 4, year < 2008) vs Baseline"
+
+        * Plot: Baseline (black) vs Pre2008 (red) with visible 95% bands (±2SE)
+        twoway ///
+            (rarea u2_base d2_base horizon, ///
+                fcolor(cranberry%35) lcolor(cranberry) lwidth(thin)) ///
+            (rarea u2_pre  d2_pre  horizon, ///
+                fcolor(midblue%20) lcolor(midblue%60) lwidth(thin)) ///
+            (line  b_base horizon, ///
+                lcolor(cranberry) lwidth(medthick)) ///
+            (line  b_pre  horizon, ///
+                lcolor(midblue)   lwidth(medthick)), ///
+            yline(0, lp("-") lc(gs6)) ///
+            title("`fulltitle'", color(black) size(medsmall)) ///
+            ytitle("Percentage points", size(medlarge)) ///
+            xtitle("Years", size(medlarge)) ///
+            ylab(-8(2)8) xlab(0(1)5) ///
+            legend(order(3 "Baseline" 4 "Pre-2008 (L=4)") cols(2) size(small) region(lcolor(none)))
+
+        graph export "$dir/figures/figure_replication/compare_L4_pre2008_`v'.pdf", as(pdf) replace
+    restore
+}
